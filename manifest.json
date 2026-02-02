@@ -1,0 +1,33 @@
+{
+	"manifest_version": 3,
+	"name": "Finitude",
+	"version": "0.1",
+	"update_url": "https://example.com/finitude/updates.json",
+
+	"description": "Limit and filter YouTube subscriptions by time.",
+
+	"icons": {
+		"48": "icon-48.png"
+	},
+
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "finitude@extension"
+		}
+	},
+
+	"host_permissions": ["*://www.youtube.com/*"],
+
+	"permissions": ["activeTab"],
+
+	"action": {
+		"default_icon": "icon-48.png",
+		"default_title": "Finitude"
+	},
+	"content_scripts": [
+		{
+			"matches": ["*://www.youtube.com/feed/subscriptions*"],
+			"js": ["finitude.js"]
+		}
+	]
+}
