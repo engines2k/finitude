@@ -1,5 +1,6 @@
 const VIDEO_AGE_LIMIT_S = 86399
-const videoCardElementQuery = "#primary ytd-item-section-renderer"
+const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
+const gridVideoCardQuery = "#primary ytd-rich-grid-renderer ytd-rich-item-renderer"
 
 const multiplierUnits: Record<string, number> = {
 	"second": 1,
@@ -23,15 +24,20 @@ function limitube() {
 }
 
 function hideOldVideos() {
-	let videos = document.querySelectorAll(videoCardElementQuery);
-	for (let video of videos) {
-		checkIfVideoShouldBeHidden(video as HTMLElement);
+	let subscriptionVideos = document.querySelectorAll(subscriptionVideoCardQuery);
+	for (let video of subscriptionVideos) {
+		checkIfVideoShouldBeHidden(video as HTMLElement, 'subscription');
+	}
+
+	let gridVideos = document.querySelectorAll(gridVideoCardQuery);
+	for (let video of gridVideos) {
+		checkIfVideoShouldBeHidden(video as HTMLElement, 'grid');
 	}
 }
 
-function checkIfVideoShouldBeHidden(video: HTMLElement) {
+function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription' | 'grid') {
 	try {
-		let age = getVideoAgeFromElement(video);
+		let age = getVideoAgeFromElement(video, viewType);
 
 		if (age > VIDEO_AGE_LIMIT_S) {
 			hideElement(video);
@@ -42,12 +48,24 @@ function checkIfVideoShouldBeHidden(video: HTMLElement) {
 	}
 }
 
-function getVideoAgeFromElement(video: HTMLElement) {
-	let metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
-	if (!metadata)
-		return 0;
+function getVideoAgeFromElement(video: HTMLElement, viewType: 'subscription' | 'grid') {
+	if (viewType === 'subscription') {
+		let metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
+		if (!metadata)
+			return 0;
 		let raw_date = (metadata[3] as HTMLElement).innerText;
-	return parseRawDate(raw_date);
+		return parseRawDate(raw_date);
+	} else {
+		let metadata = video.querySelectorAll("yt-content-metadata-view-model .yt-content-metadata-view-model__metadata-row");
+		if (!metadata || metadata.length < 2)
+			return 0;
+		let raw_date = (metadata[1] as HTMLElement).innerText;
+		let parts = raw_date.split('•');
+		if (parts.length >= 2) {
+			return parseRawDate(parts[1].trim());
+		}
+		return 0;
+	}
 }
 
 function parseRawDate(date: string) {
@@ -68,10 +86,10 @@ function getQuantityAndUnit(date: string) {
 function hideElement(element: HTMLElement) {
 	element.style.display = "none";
 }
-export default defineContentScript({
-	matches: ['*://*.google.com/*'],
-	main() {
 
+export default defineContentScript({
+	matches: ['https://www.youtube.com/*'],
+	main() {
 		limitube();
 
 		const originalObserve = IntersectionObserver.prototype.observe;
@@ -82,15 +100,5 @@ export default defineContentScript({
 			}
 			return originalObserve.apply(this, arguments as any);
 		};
-
-		const originalFetch = window.fetch;
-		window.fetch = function(...args) {
-			const url = args[0];
-			if (typeof url === 'string' && url.includes('browse') && url.includes('continuation')) {
-				return Promise.reject(new Error('Blocked'));
-			}
-			return originalFetch.apply(this, args);
-		};
-
 	},
 });

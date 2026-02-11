@@ -8,4 +8,7 @@ export default defineConfig({
 		keepProfileChanges: true,
 		startUrls: ['https://youtube.com']
 	},
+	manifest: {
+		permissions: ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'],
+	},
 });

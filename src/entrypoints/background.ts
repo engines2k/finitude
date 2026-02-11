@@ -1,3 +1,14 @@
 export default defineBackground(() => {
-  console.log('Hello background!', { id: browser.runtime.id });
+  browser.declarativeNetRequest.updateDynamicRules({
+    addRules: [
+      {
+        id: 1,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          regexFilter: '^https://www\\.youtube\\.com/youtubei/v1/browse.*continuation=',
+        },
+      },
+    ],
+  });
 });
