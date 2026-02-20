@@ -1,6 +1,6 @@
-const VIDEO_AGE_LIMIT_S = 86399
 const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
 const gridVideoCardQuery = "#primary ytd-rich-grid-renderer ytd-rich-item-renderer"
+const continuationLoaderQuery = "#primary ytd-continuation-item-renderer, #primary ytd-rich-grid-renderer ytd-continuation-item-renderer"
 
 const multiplierUnits: Record<string, number> = {
 	"second": 1,
@@ -19,7 +19,30 @@ const multiplierUnits: Record<string, number> = {
 	"years": 31536000
 }
 
-function limitube() {
+let ageLimitSeconds = 86399
+
+async function loadFilterSettings() {
+	console.log('[Content] Loading filter settings...');
+	try {
+		const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { quantity: string, unit: string } | undefined;
+		console.log('[Content] Response:', response);
+		if (response) {
+			ageLimitSeconds = unitsToSeconds(parseInt(response.quantity), response.unit);
+			console.log('[Content] ageLimitSeconds updated to:', ageLimitSeconds);
+		}
+	} catch (err) {
+		console.error('[Content] Error loading settings:', err);
+	}
+}
+
+browser.runtime.onMessage.addListener((message, _, sendResponse) => {
+	console.log('[Content] Received message:', message);
+	if (message.type === 'filterSettingsChanged') {
+		loadFilterSettings();
+	}
+});
+
+function observeVideos() {
 	new MutationObserver(hideOldVideos).observe(document.body, { childList: true, subtree: true });
 }
 
@@ -33,13 +56,18 @@ function hideOldVideos() {
 	for (let video of gridVideos) {
 		checkIfVideoShouldBeHidden(video as HTMLElement, 'grid');
 	}
+
+	let loaders = document.querySelectorAll(continuationLoaderQuery);
+	for (let loader of loaders) {
+		hideElement(loader as HTMLElement);
+	}
 }
 
 function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription' | 'grid') {
 	try {
 		let age = getVideoAgeFromElement(video, viewType);
 
-		if (age > VIDEO_AGE_LIMIT_S) {
+		if (age > ageLimitSeconds) {
 			hideElement(video);
 		}
 
@@ -68,10 +96,10 @@ function getVideoAgeFromElement(video: HTMLElement, viewType: 'subscription' | '
 	}
 }
 
+
 function parseRawDate(date: string) {
 	let parsed = getQuantityAndUnit(date);
-	let multiplier = multiplierUnits[parsed.unit];
-	return parsed.quantity * multiplier;
+	return unitsToSeconds(parsed.quantity, parsed.unit)
 }
 
 function getQuantityAndUnit(date: string) {
@@ -83,6 +111,11 @@ function getQuantityAndUnit(date: string) {
 	}
 }
 
+function unitsToSeconds(quantity: number, unit: string) {
+	let multiplier = multiplierUnits[unit];
+	return multiplier * quantity;
+}
+
 function hideElement(element: HTMLElement) {
 	element.style.display = "none";
 }
@@ -90,7 +123,8 @@ function hideElement(element: HTMLElement) {
 export default defineContentScript({
 	matches: ['https://www.youtube.com/*'],
 	main() {
-		limitube();
+		loadFilterSettings();
+		observeVideos();
 
 		const originalObserve = IntersectionObserver.prototype.observe;
 

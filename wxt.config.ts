@@ -9,6 +9,7 @@ export default defineConfig({
 		startUrls: ['https://youtube.com']
 	},
 	manifest: {
-		permissions: ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'],
+		permissions: ['webRequest', 'webRequestBlocking', 'storage'],
+		host_permissions: ['https://www.youtube.com/*'],
 	},
 });
