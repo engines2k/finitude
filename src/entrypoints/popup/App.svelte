@@ -1,42 +1,129 @@
 <script lang="ts">
-  import svelteLogo from '../../assets/svelte.svg'
-  import Counter from '../../lib/Counter.svelte'
+	import finitudeLogo from "../../../public/icon/128.png";
+	import "./app.css";
+
+	let quantity = $state("24");
+	let unit = $state("hours");
+	let loading = $state(true);
+	let saving = $state(false);
+
+	async function loadSettings() {
+		try {
+			const response = (await browser.runtime.sendMessage({
+				type: "getFilterSettings",
+			})) as { quantity: string; unit: string } | undefined;
+			if (response) {
+				quantity = response.quantity;
+				unit = response.unit;
+			}
+		} catch (err) {
+			console.error("[Popup] Error loading settings:", err);
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function saveSettings() {
+		saving = true;
+		try {
+			await browser.runtime.sendMessage({
+				type: "saveFilterSettings",
+				unit,
+				quantity,
+			});
+		} catch (err) {
+			console.error("[Popup] Error saving settings:", err);
+		} finally {
+			saving = false;
+		}
+	}
+
+	function handleChange() {
+		saveSettings();
+	}
+
+	loadSettings();
 </script>
 
 <main>
-  <div>
-    <a href="https://wxt.dev" target="_blank" rel="noreferrer">
-      <img src="/wxt.svg" class="logo" alt="WXT Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>WXT + Svelte</h1>
+	<div class="header">
+		<img src={finitudeLogo} class="logo" alt="Finitude Logo" />
+		<h1>Finitude</h1>
+	</div>
 
-  <div class="card">
-    <Counter />
-  </div>
+	{#if loading}
+		<p>Loading...</p>
+	{:else}
+		<div class="filter-controls">
+			<label for="quantity">Limit subscriptions to</label>
+			<div class="input-row">
+				<input
+					type="number"
+					id="quantity"
+					name="quantity"
+					min="1"
+					bind:value={quantity}
+					onchange={handleChange}
+				/>
+				<select
+					id="unit"
+					name="unit"
+					bind:value={unit}
+					onchange={handleChange}
+				>
+					<option value="hours">hours</option>
+					<option value="days">days</option>
+					<option value="weeks">weeks</option>
+					<option value="months">months</option>
+				</select>
+			</div>
+		</div>
+	{/if}
 
-  <p class="read-the-docs">
-    Click on the WXT and Svelte logos to learn more
-  </p>
+	{#if saving}
+		<p class="saving">Saving...</p>
+	{/if}
 </main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #54bc4ae0);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+	.header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.logo {
+		height: 2rem;
+		width: 2rem;
+	}
+
+	h1 {
+		font-size: 1.25rem;
+		margin: 0;
+	}
+
+	.filter-controls {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.input-row {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	input {
+		width: 60px;
+	}
+
+	select {
+		flex: 1;
+	}
+
+	.saving {
+		font-size: 0.75rem;
+		color: #666;
+	}
 </style>
