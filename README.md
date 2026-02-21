@@ -54,8 +54,9 @@ This extension is built with WXT and SvelteKit.
 
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+You can install this extension via the extention store on your browser (soon (hopefully!))
+
+For development, follow the steps below for installation, testing and building.
 
 
 ### Prerequisites
