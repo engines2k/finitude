@@ -3,7 +3,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/engines2k/finitude">
-    <img src="public/128.png" alt="Logo" width="80" height="80">
+    <img src="public/icon/128.png" alt="Logo" width="80" height="80">
   </a>
 
   <h3 align="center">Finitude</h3>
