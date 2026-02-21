@@ -43,7 +43,7 @@
 
 ## About 
 
-There are many great extensions for removing distractions and simplifying YouTube, but none of them minimzlize or extend the subscriptions page in the way I would like.
+There are many great extensions for removing distractions and simplifying YouTube, but none of them minimalize or extend the subscriptions page in the way I would like.
 
 The goal of this extension is to be able to hit an "inbox zero" by constraining the length of the subscriptions page, and in the future extend it with features for grouping subscriptions, limiting videos from the same channel, and more.
 
