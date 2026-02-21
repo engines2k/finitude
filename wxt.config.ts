@@ -11,5 +11,12 @@ export default defineConfig({
 	manifest: {
 		permissions: ['webRequest', 'webRequestBlocking', 'storage'],
 		host_permissions: ['https://www.youtube.com/*'],
+		browser_specific_settings: {
+			gecko: {
+				data_collection_permissions: {
+					required: ["none"]
+				}
+			}
+		}
 	},
 });
