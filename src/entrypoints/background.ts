@@ -1,9 +1,9 @@
 export default defineBackground(() => {
-	let allowOnce = true;
 	const tabUrls = new Map<number, string>();
+	const tabAllowances = new Map<number, boolean>();
 
 	function resetAllowance(details: any) {
-		allowOnce = true;
+		tabAllowances.set(details.tabId, true);
 		tabUrls.set(details.tabId, details.url);
 	}
 
@@ -14,14 +14,19 @@ export default defineBackground(() => {
 	}
 
 	function blockSubscriptionContinuations(details) {
-		if (allowOnce) {
-			allowOnce = false;
+		const pageUrl = tabUrls.get(details.tabId) || '';
+		if (!pageUrl.includes('/feed/subscriptions')) {
 			return { cancel: false };
 		}
 
-		const pageUrl = tabUrls.get(details.tabId) || '';
-		if (pageUrl.includes('/feed/subscriptions'))
-			return { cancel: true };
+		const allowed = tabAllowances.get(details.tabId);
+		if (allowed === undefined || allowed === true) {
+			tabAllowances.set(details.tabId, false);
+			console.log('for now...');
+			return { cancel: false };
+		}
+
+		return { cancel: true };
 	}
 
 	browser.tabs.onUpdated.addListener(trackTabUrl);

@@ -2,6 +2,8 @@ const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
 const gridVideoCardQuery = "#primary ytd-rich-grid-renderer ytd-rich-item-renderer"
 const continuationLoaderQuery = "#primary ytd-ghost-grid-renderer"
 
+const mobileSubscriptionVideoCardQuery = ".YtmBrowseHost ytm-item-section-renderer ytm-video-with-context-renderer"
+
 const multiplierUnits: Record<string, number> = {
 	"second": 1,
 	"seconds": 1,
@@ -48,13 +50,21 @@ function observeVideos() {
 
 function hideOldVideos() {
 	let subscriptionVideos = document.querySelectorAll(subscriptionVideoCardQuery);
+	console.log('[Content] Desktop subscription videos found:', subscriptionVideos.length);
 	for (let video of subscriptionVideos) {
 		checkIfVideoShouldBeHidden(video as HTMLElement, 'subscription');
 	}
 
 	let gridVideos = document.querySelectorAll(gridVideoCardQuery);
+	console.log('[Content] Desktop grid videos found:', gridVideos.length);
 	for (let video of gridVideos) {
 		checkIfVideoShouldBeHidden(video as HTMLElement, 'grid');
+	}
+
+	let mobileVideos = document.querySelectorAll(mobileSubscriptionVideoCardQuery);
+	console.log('[Content] Mobile videos found:', mobileVideos.length);
+	for (let video of mobileVideos) {
+		checkIfVideoShouldBeHidden(video as HTMLElement, 'mobile');
 	}
 
 	let loaders = document.querySelectorAll(continuationLoaderQuery);
@@ -63,12 +73,14 @@ function hideOldVideos() {
 	}
 }
 
-function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription' | 'grid') {
+function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription' | 'grid' | 'mobile') {
 	try {
 		let age = getVideoAgeFromElement(video, viewType);
+		console.log(`[Content] ${viewType} video age:`, age, 'limit:', ageLimitSeconds);
 
 		if (age >= ageLimitSeconds) {
 			hideElement(video);
+			console.log('[Content] Hid video');
 		}
 
 	} catch (err) {
@@ -76,8 +88,16 @@ function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription'
 	}
 }
 
-function getVideoAgeFromElement(video: HTMLElement, viewType: 'subscription' | 'grid') {
-	if (viewType === 'subscription') {
+function getVideoAgeFromElement(video: HTMLElement, viewType: 'subscription' | 'grid' | 'mobile') {
+	if (viewType === 'mobile') {
+		const metadata = video.querySelectorAll(".YtmBadgeAndBylineRendererItemByline");
+		console.log('[Content] Mobile metadata:', metadata.length);
+		if (!metadata || metadata.length < 3)
+			return 0;
+		let raw_date = (metadata[2] as HTMLElement).innerText;
+		console.log('[Content] Mobile raw_date:', raw_date);
+		return parseRawDate(raw_date);
+	} else if (viewType === 'subscription') {
 		let metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
 		if (!metadata)
 			return 0;
