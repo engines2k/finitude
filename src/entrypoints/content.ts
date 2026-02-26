@@ -1,6 +1,6 @@
 const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
 const gridVideoCardQuery = "#primary ytd-rich-grid-renderer ytd-rich-item-renderer"
-const continuationLoaderQuery = "#primary ytd-continuation-item-renderer, #primary ytd-rich-grid-renderer ytd-continuation-item-renderer"
+const continuationLoaderQuery = "#primary ytd-ghost-grid-renderer"
 
 const multiplierUnits: Record<string, number> = {
 	"second": 1,
@@ -67,7 +67,7 @@ function checkIfVideoShouldBeHidden(video: HTMLElement, viewType: 'subscription'
 	try {
 		let age = getVideoAgeFromElement(video, viewType);
 
-		if (age > ageLimitSeconds) {
+		if (age >= ageLimitSeconds) {
 			hideElement(video);
 		}
 

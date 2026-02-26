@@ -77,6 +77,11 @@ For development, follow the steps below for installation, testing and building.
    ```sh
    pnpm postinstall
    ```
+4. Generate Firefox profile
+   ```sh
+   mkdir -p .wxt/firefox-profile
+   firefox -profile .wxt/firefox-profile -CreateProfile "finitude" 2>/dev/null || true
+   ```
 
 ### Testing
 

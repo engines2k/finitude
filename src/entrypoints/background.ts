@@ -1,22 +1,44 @@
 export default defineBackground(() => {
-	console.debug('[Background] Script loaded');
+	let allowOnce = true;
+	const tabUrls = new Map<number, string>();
+
+	function resetAllowance(details: any) {
+		allowOnce = true;
+		tabUrls.set(details.tabId, details.url);
+	}
+
+	function trackTabUrl(tabId, _, tab) {
+		if (tab.url) {
+			tabUrls.set(tabId, tab.url);
+		}
+	}
+
+	function blockSubscriptionContinuations(details) {
+		if (allowOnce) {
+			allowOnce = false;
+			return { cancel: false };
+		}
+
+		const pageUrl = tabUrls.get(details.tabId) || '';
+		if (pageUrl.includes('/feed/subscriptions'))
+			return { cancel: true };
+	}
+
+	browser.tabs.onUpdated.addListener(trackTabUrl);
+
+	browser.webNavigation.onHistoryStateUpdated.addListener(resetAllowance)
+	browser.webNavigation.onBeforeNavigate.addListener(resetAllowance)
 
 	browser.webRequest.onBeforeRequest.addListener(
-		(details) => {
-			const body = details?.requestBody?.raw?.[0]?.bytes ?? new ArrayBuffer;
-			const decoder = new TextDecoder();
-			const bodyStr = decoder.decode(body);
-
-			if (bodyStr.includes('"continuation"'))
-				return { cancel: true };
-			else
-				return { cancel: false };
-		},
-		{
-			urls: ['https://www.youtube.com/youtubei/v1/browse'],
-		},
+		blockSubscriptionContinuations,
+		{ urls: ['*://www.youtube.com/youtubei/v1/browse*'] },
 		['blocking', 'requestBody']
 	);
+
+
+	browser.tabs.onRemoved.addListener((tabId) => {
+		tabUrls.delete(tabId);
+	});
 
 	browser.runtime.onMessage.addListener((message, _, sendResponse) => {
 		console.log('[Background] Received message:', message);
