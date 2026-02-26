@@ -76,6 +76,11 @@ To get a local copy up and running follow these simple example steps.
    ```sh
    pnpm postinstall
    ```
+4. Generate Firefox profile
+   ```sh
+   mkdir -p .wxt/firefox-profile
+   firefox -profile .wxt/firefox-profile -CreateProfile "finitude" 2>/dev/null || true
+   ```
 
 ### Testing
 

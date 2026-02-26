@@ -9,7 +9,7 @@ export default defineConfig({
 		startUrls: ['https://youtube.com']
 	},
 	manifest: {
-		permissions: ['webRequest', 'webRequestBlocking', 'storage'],
+		permissions: ['webRequest', 'webRequestBlocking', 'storage', 'webNavigation'],
 		host_permissions: ['https://www.youtube.com/*'],
 		browser_specific_settings: {
 			gecko: {

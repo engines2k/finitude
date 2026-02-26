@@ -55,7 +55,7 @@
 		<p>Loading...</p>
 	{:else}
 		<div class="filter-controls">
-			<label for="quantity">Limit subscriptions to</label>
+			<label for="quantity">Limit subscriptions to less than</label>
 			<div class="input-row">
 				<input
 					type="number"
