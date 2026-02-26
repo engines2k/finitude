@@ -37,7 +37,7 @@ export default defineBackground(() => {
 	browser.webRequest.onBeforeRequest.addListener(
 		blockSubscriptionContinuations,
 		{ urls: ['*://www.youtube.com/youtubei/v1/browse*'] },
-		['blocking', 'requestBody']
+		['blocking']
 	);
 
 
