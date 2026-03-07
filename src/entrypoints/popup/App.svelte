@@ -1,6 +1,8 @@
 <script lang="ts">
 	import finitudeLogo from "../../../public/icon/128.png";
 	import "./app.css";
+	import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
+	import Switch from "$lib/components/ui/switch/switch.svelte";
 
 	let quantity = $state("24");
 	let unit = $state("hours");
@@ -13,7 +15,14 @@
 		try {
 			const response = (await browser.runtime.sendMessage({
 				type: "getFilterSettings",
-			})) as { quantity: string; unit: string; hideMostRelevantSection: boolean; hideShortsSection: boolean } | undefined;
+			})) as
+				| {
+						quantity: string;
+						unit: string;
+						hideMostRelevantSection: boolean;
+						hideShortsSection: boolean;
+				  }
+				| undefined;
 			if (response) {
 				quantity = response.quantity;
 				unit = response.unit;
@@ -85,22 +94,26 @@
 			</div>
 		</div>
 
-		<div class="filter-controls">
-			<label>
-				<input
-					type="checkbox"
-					bind:checked={hideMostRelevantSection}
-					onchange={handleChange}
+		<div class="flex flex-col gap-3">
+			<label class="flex items-center gap-2 text-sm">
+				Hide Most relevant section
+				<Switch
+					checked={hideMostRelevantSection}
+					onCheckedChange={(checked) => {
+						hideMostRelevantSection = !!checked;
+						handleChange();
+					}}
 				/>
-				Hide "Most Relevant" section
 			</label>
-			<label>
-				<input
-					type="checkbox"
-					bind:checked={hideShortsSection}
-					onchange={handleChange}
-				/>
+			<label class="flex items-center gap-2 text-sm">
 				Hide Shorts section
+				<Switch
+					checked={hideShortsSection}
+					onCheckedChange={(checked) => {
+						hideShortsSection = !!checked;
+						handleChange();
+					}}
+				/>
 			</label>
 		</div>
 	{/if}
