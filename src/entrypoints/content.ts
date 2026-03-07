@@ -1,8 +1,25 @@
 export default defineContentScript({
-	matches: ['https://www.youtube.com/feed/subscriptions*', 'https://m.youtube.com/feed/subscriptions*'],
+	matches: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
 	main() {
-		filterer.loadSettings();
-		filterer.filterVideos();
+		function shouldRun(): boolean {
+			const path = window.location.pathname;
+			return path === '/feed/subscriptions' || path === '/feed';
+		}
+
+		function runFilter() {
+			if (shouldRun()) {
+				filterer.loadSettings();
+				filterer.filterVideos();
+			}
+		}
+
+		runFilter();
+
+		new MutationObserver(() => {
+			if (shouldRun()) {
+				runFilter();
+			}
+		}).observe(document.body, { childList: true, subtree: true });
 	},
 });
 
@@ -10,7 +27,6 @@ const filterer = videoFilterer();
 
 browser.runtime.onMessage.addListener(
 	function listenForMessage(message, _, __) {
-		console.debug('[Content] Received message:', message);
 		if (message.type === 'filterSettingsChanged') {
 			filterer.loadSettings()
 		}
@@ -22,6 +38,7 @@ function videoFilterer() {
 	const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
 	const gridVideoCardQuery = "#primary ytd-rich-item-renderer"
 	const mobileSubscriptionVideoCardQuery = "ytm-rich-item-renderer"
+	let videoObserver: MutationObserver | null = null;
 
 	let settings = {
 		ageLimitSeconds: 86399,
@@ -41,15 +58,12 @@ function videoFilterer() {
 	}
 
 	async function loadSettings() {
-		console.debug('[Content] Loading filter settings...');
 		try {
 			const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { quantity: string, unit: string, hideMostRelevantSection: boolean, hideShortsSection: boolean } | undefined;
-			console.debug('[Content] Response:', response);
 			if (response) {
 				settings.ageLimitSeconds = unitsToSeconds(parseInt(response.quantity), response.unit);
 				settings.hideMostRelevantSection = response.hideMostRelevantSection;
 				settings.hideShortsSection = response.hideShortsSection;
-				console.debug('[Content] ageLimitSeconds updated to:', settings.ageLimitSeconds);
 			}
 		} catch (err) {
 			console.error('[Content] Error loading settings:', err);
@@ -58,19 +72,25 @@ function videoFilterer() {
 
 
 	function filterVideos() {
-		new MutationObserver(handleVideoFeedMutation).observe(document.body, { childList: true, subtree: true })
+		videoObserver?.disconnect();
+		videoObserver = new MutationObserver((mutations, observer) => {
+			handleVideoFeedMutation();
+		});
+		videoObserver.observe(document.body, { childList: true, subtree: true });
+		
+		handleVideoFeedMutation();
 	}
 
 	function handleVideoFeedMutation() {
 		let anyHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
 			let matches = document.querySelectorAll(query)
-			console.log(query, matches)
-			for (let video of matches)
+			for (let video of matches) {
 				if (videoTooOld(video as HTMLElement, type)) {
 					video.remove()
 					anyHidden = true;
 				}
+			}
 		}
 		if (anyHidden) stopFeedContinuation();
 
@@ -91,22 +111,17 @@ function videoFilterer() {
 
 	function getSectionTitle(section: HTMLElement) {
 		let titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span")
-		let title = titleElement?.textContent
-		console.log(`title is ${title}`)
-		return title
+		return titleElement?.textContent
 	}
 
 	function videoTooOld(video: HTMLElement, viewType: keyof typeof videoTypes) {
 		const age = getVideoAge(video, viewType);
-		if (age >= settings.ageLimitSeconds)
-			return true
-		return false
+		return age >= settings.ageLimitSeconds;
 	}
 
 	function stopFeedContinuation() {
 		const query = "ytd-continuation-item-renderer, ytm-continuation-item-renderer"
 		const continuator = document.querySelector(query)
-		console.debug('continuator: ', continuator);
 		continuator?.remove()
 	}
 
@@ -118,7 +133,6 @@ function videoFilterer() {
 			case 'mobile': {
 				metadata = video.querySelectorAll(".YtmBadgeAndBylineRendererItemByline");
 				rawDate = (metadata?.[2] as HTMLElement)?.innerText;
-				console.log(metadata, rawDate)
 				break;
 			}
 
@@ -173,5 +187,3 @@ function videoFilterer() {
 		return multiplier * quantity;
 	}
 }
-
-
