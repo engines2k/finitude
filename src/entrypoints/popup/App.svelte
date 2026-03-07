@@ -4,6 +4,8 @@
 
 	let quantity = $state("24");
 	let unit = $state("hours");
+	let hideMostRelevantSection = $state(true);
+	let hideShortsSection = $state(true);
 	let loading = $state(true);
 	let saving = $state(false);
 
@@ -11,10 +13,12 @@
 		try {
 			const response = (await browser.runtime.sendMessage({
 				type: "getFilterSettings",
-			})) as { quantity: string; unit: string } | undefined;
+			})) as { quantity: string; unit: string; hideMostRelevantSection: boolean; hideShortsSection: boolean } | undefined;
 			if (response) {
 				quantity = response.quantity;
 				unit = response.unit;
+				hideMostRelevantSection = response.hideMostRelevantSection;
+				hideShortsSection = response.hideShortsSection;
 			}
 		} catch (err) {
 			console.error("[Popup] Error loading settings:", err);
@@ -30,6 +34,8 @@
 				type: "saveFilterSettings",
 				unit,
 				quantity,
+				hideMostRelevantSection,
+				hideShortsSection,
 			});
 		} catch (err) {
 			console.error("[Popup] Error saving settings:", err);
@@ -77,6 +83,25 @@
 					<option value="months">months</option>
 				</select>
 			</div>
+		</div>
+
+		<div class="filter-controls">
+			<label>
+				<input
+					type="checkbox"
+					bind:checked={hideMostRelevantSection}
+					onchange={handleChange}
+				/>
+				Hide "Most Relevant" section
+			</label>
+			<label>
+				<input
+					type="checkbox"
+					bind:checked={hideShortsSection}
+					onchange={handleChange}
+				/>
+				Hide Shorts section
+			</label>
 		</div>
 	{/if}
 

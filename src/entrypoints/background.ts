@@ -1,4 +1,5 @@
 export default defineBackground(() => {
+	/*
 	const tabUrls = new Map<number, string>();
 	const tabAllowances = new Map<number, boolean>();
 
@@ -29,6 +30,7 @@ export default defineBackground(() => {
 		return { cancel: true };
 	}
 
+
 	browser.tabs.onUpdated.addListener(trackTabUrl);
 
 	browser.webNavigation.onHistoryStateUpdated.addListener(resetAllowance)
@@ -44,14 +46,17 @@ export default defineBackground(() => {
 	browser.tabs.onRemoved.addListener((tabId) => {
 		tabUrls.delete(tabId);
 	});
+	*/
 
-	browser.runtime.onMessage.addListener((message, _, sendResponse) => {
+	browser.runtime.onMessage.addListener((message, _, __) => {
 		console.log('[Background] Received message:', message);
 		if (message.type === 'saveFilterSettings') {
 			console.log('[Background] Saving settings:', message.quantity, message.unit);
 			browser.storage.local.set({
 				filterQuantity: message.quantity,
-				filterUnit: message.unit
+				filterUnit: message.unit,
+				hideMostRelevantSection: message.hideMostRelevantSection,
+				hideShortsSection: message.hideShortsSection,
 			}).then(() => {
 				console.log('[Background] Settings saved, querying tabs...');
 				browser.tabs.query({ url: 'https://www.youtube.com/*' }).then((tabs) => {
@@ -71,12 +76,16 @@ export default defineBackground(() => {
 		if (message.type === 'getFilterSettings') {
 			browser.storage.local.get({
 				filterQuantity: '24',
-				filterUnit: 'hours'
+				filterUnit: 'hours',
+				hideMostRelevantSection: true,
+				hideShortsSection: true,
 			}).then((result) => {
 				console.log('[Background] Returning settings:', result);
 				sendResponse({
 					quantity: result.filterQuantity as string,
-					unit: result.filterUnit as string
+					unit: result.filterUnit as string,
+					hideMostRelevantSection: result.hideMostRelevantSection as boolean,
+					hideShortsSection: result.hideShortsSection as boolean,
 				});
 			}).catch(err => {
 				console.error('[Background] Error getting settings:', err);
