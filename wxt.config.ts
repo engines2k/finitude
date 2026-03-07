@@ -19,8 +19,7 @@ export default defineConfig({
 		startUrls: ['https://youtube.com']
 	},
 	manifest: {
-		permissions: ['webRequest', 'webRequestBlocking', 'storage', 'webNavigation'],
-		host_permissions: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
+		permissions: ['storage'],
 		browser_specific_settings: {
 			gecko: {
 				data_collection_permissions: {

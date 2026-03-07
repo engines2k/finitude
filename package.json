@@ -2,14 +2,14 @@
   "name": "Finitude",
   "description": "Remove infinite scrolling from Youtube and limit feed sizes",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "wxt -b firefox",
     "dev:chrome": "wxt",
     "build": "wxt build -b firefox",
     "build:chrome": "wxt build",
-    "zip": "wxt zip zip -b firefox",
+    "zip": "wxt zip -b firefox",
     "zip:chrome": "wxt zip",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "postinstall": "wxt prepare"
