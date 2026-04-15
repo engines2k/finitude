@@ -1,50 +1,48 @@
 export default defineContentScript({
 	matches: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
 	main() {
-		function shouldRun(): boolean {
-			const path = window.location.pathname;
-			return path === '/feed/subscriptions' || path === '/feed';
-		}
-
-		function runFilter() {
-			if (shouldRun()) {
-				filterer.loadSettings();
-				filterer.filterVideos();
-			}
-		}
-
 		runFilter();
-
-		new MutationObserver(() => {
-			if (shouldRun()) {
-				runFilter();
-			}
-		}).observe(document.body, { childList: true, subtree: true });
+		new MutationObserver(runFilter).observe(document.body, { childList: true, subtree: true });
 	},
 });
+
+function shouldRun(): boolean {
+	const path = window.location.pathname;
+	return path.includes('/feed/subscriptions');
+}
+
+function runFilter() {
+	if (!shouldRun()) {
+		filterer.resumeFeedContinuation();
+		return;
+	}
+	filterer.loadSettings();
+	filterer.filterVideos();
+}
 
 const filterer = videoFilterer();
 
 browser.runtime.onMessage.addListener(
 	function listenForMessage(message, _, __) {
 		if (message.type === 'filterSettingsChanged') {
-			filterer.loadSettings()
+			filterer.loadSettings();
 		}
 	}
 );
 
 
 function videoFilterer() {
-	const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer"
-	const gridVideoCardQuery = "#primary ytd-rich-item-renderer"
-	const mobileSubscriptionVideoCardQuery = "ytm-rich-item-renderer"
+	const subscriptionVideoCardQuery = "#primary ytd-item-section-renderer";
+	const gridVideoCardQuery = "#contents ytd-rich-item-renderer";
+	const mobileSubscriptionVideoCardQuery = "ytm-rich-item-renderer";
+	const contQuery = "ytd-continuation-item-renderer, ytm-continuation-item-renderer";
 	let videoObserver: MutationObserver | null = null;
 
 	let settings = {
 		ageLimitSeconds: 86399,
 		hideMostRelevantSection: true,
 		hideShortsSection: true,
-	}
+	};
 
 	let videoTypes = {
 		subscription: subscriptionVideoCardQuery,
@@ -55,7 +53,9 @@ function videoFilterer() {
 	return {
 		loadSettings,
 		filterVideos,
-	}
+		stopFeedContinuation,
+		resumeFeedContinuation,
+	};
 
 	async function loadSettings() {
 		try {
@@ -77,7 +77,7 @@ function videoFilterer() {
 			handleVideoFeedMutation();
 		});
 		videoObserver.observe(document.body, { childList: true, subtree: true });
-		
+
 		handleVideoFeedMutation();
 	}
 
@@ -85,6 +85,7 @@ function videoFilterer() {
 		let anyHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
 			let matches = document.querySelectorAll(query)
+			console.log(`evaluating ${matches.length} matches`);
 			for (let video of matches) {
 				if (videoTooOld(video as HTMLElement, type)) {
 					video.remove()
@@ -93,12 +94,10 @@ function videoFilterer() {
 			}
 		}
 		if (anyHidden) stopFeedContinuation();
-
 		if (settings.hideMostRelevantSection)
-			hideSection("Most relevant")
-
+			hideSection("Most relevant");
 		if (settings.hideShortsSection)
-			hideSection("Shorts")
+			hideSection("Shorts");
 	}
 
 	function hideSection(name: string) {
@@ -106,23 +105,30 @@ function videoFilterer() {
 		let sections = document.querySelectorAll(sectionsQuery)
 		for (let section of sections)
 			if (getSectionTitle(section as HTMLElement) == name)
-				section.remove()
+				section.remove();
 	}
 
 	function getSectionTitle(section: HTMLElement) {
 		let titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span")
-		return titleElement?.textContent
+		return titleElement?.textContent;
 	}
 
 	function videoTooOld(video: HTMLElement, viewType: keyof typeof videoTypes) {
 		const age = getVideoAge(video, viewType);
+		console.log(`${video} has age of ${age}`);
 		return age >= settings.ageLimitSeconds;
 	}
 
 	function stopFeedContinuation() {
-		const query = "ytd-continuation-item-renderer, ytm-continuation-item-renderer"
-		const continuator = document.querySelector(query)
-		continuator?.remove()
+		const continuator = document.querySelector(contQuery) as HTMLElement
+		if (continuator)
+			continuator.style.display = 'none';
+	}
+
+	function resumeFeedContinuation() {
+		const continuator = document.querySelector(contQuery) as HTMLElement
+		if (continuator)
+			continuator.style.display = 'block';
 	}
 
 	function getVideoAge(video: HTMLElement, viewType: keyof typeof videoTypes) {
@@ -142,7 +148,7 @@ function videoFilterer() {
 				break;
 			}
 			case 'grid': {
-				metadata = video.querySelectorAll("yt-content-metadata-view-model .yt-content-metadata-view-model__metadata-row")[1];
+				metadata = video.querySelectorAll(".ytContentMetadataViewModelMetadataRow")[1];
 				rawDate = (metadata?.children?.[2] as HTMLElement)?.innerText;
 				break;
 			}
@@ -161,8 +167,8 @@ function videoFilterer() {
 		if (!rawDate)
 			return 0;
 		const parsedDate = getQuantityAndUnit(rawDate);
-		const videoAge = unitsToSeconds(parsedDate.quantity, parsedDate.unit)
-		return videoAge
+		const videoAge = unitsToSeconds(parsedDate.quantity, parsedDate.unit);
+		return videoAge;
 	}
 
 	function unitsToSeconds(quantity: number, unit: string) {
@@ -181,7 +187,7 @@ function videoFilterer() {
 			"months": 2592000,
 			"year": 31536000,
 			"years": 31536000
-		}
+		};
 
 		let multiplier = multiplierUnits[unit];
 		return multiplier * quantity;
