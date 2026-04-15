@@ -6,13 +6,11 @@ export default defineContentScript({
 	},
 });
 
-function shouldRun(): boolean {
-	const path = window.location.pathname;
-	return path.includes('/feed/subscriptions');
-}
+const isDev = import.meta.env.DEV;
+
 
 function runFilter() {
-	if (!shouldRun()) {
+	if (!filterer.shouldRun()) {
 		filterer.resumeFeedContinuation();
 		return;
 	}
@@ -51,6 +49,7 @@ function videoFilterer() {
 	};
 
 	return {
+		shouldRun,
 		loadSettings,
 		filterVideos,
 		stopFeedContinuation,
@@ -70,7 +69,6 @@ function videoFilterer() {
 		}
 	}
 
-
 	function filterVideos() {
 		videoObserver?.disconnect();
 		videoObserver = new MutationObserver((mutations, observer) => {
@@ -81,11 +79,21 @@ function videoFilterer() {
 		handleVideoFeedMutation();
 	}
 
+
+	function shouldRun(): boolean {
+		let path = window.location.pathname;
+		isDev && console.log(`path ${path}`)
+		return path.includes('/feed/subscriptions');
+	}
+
+
 	function handleVideoFeedMutation() {
+		if (!shouldRun())
+			return;
 		let anyHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
 			let matches = document.querySelectorAll(query)
-			console.log(`evaluating ${matches.length} matches`);
+			isDev && console.log(`evaluating ${matches.length} matches`);
 			for (let video of matches) {
 				if (videoTooOld(video as HTMLElement, type)) {
 					video.remove()
@@ -115,7 +123,7 @@ function videoFilterer() {
 
 	function videoTooOld(video: HTMLElement, viewType: keyof typeof videoTypes) {
 		const age = getVideoAge(video, viewType);
-		console.log(`${video} has age of ${age}`);
+		isDev && console.log(`${video} has age of ${age}`);
 		return age >= settings.ageLimitSeconds;
 	}
 
@@ -132,43 +140,35 @@ function videoFilterer() {
 	}
 
 	function getVideoAge(video: HTMLElement, viewType: keyof typeof videoTypes) {
-		let metadata;
-		let rawDate;
+		let metadataHtml: string | null = null;
 
 		switch (viewType) {
 			case 'mobile': {
-				metadata = video.querySelectorAll(".YtmBadgeAndBylineRendererItemByline");
-				rawDate = (metadata?.[2] as HTMLElement)?.innerText;
+				const metadata = video.querySelectorAll(".YtmBadgeAndBylineRendererItemByline");
+				metadataHtml = (metadata?.[2] as HTMLElement)?.innerHTML;
 				break;
 			}
 
 			case 'subscription': {
-				metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
-				rawDate = (metadata?.[3] as HTMLElement)?.innerText;
+				const metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
+				metadataHtml = (metadata?.[3] as HTMLElement)?.innerHTML;
 				break;
 			}
 			case 'grid': {
-				metadata = video.querySelectorAll(".ytContentMetadataViewModelMetadataRow")[1];
-				rawDate = (metadata?.children?.[2] as HTMLElement)?.innerText;
+				const metadata = video.querySelectorAll(".ytContentMetadataViewModelMetadataRow")[1];
+				metadataHtml = metadata?.innerHTML || null;
 				break;
 			}
 		}
 
-
-		function getQuantityAndUnit(date: string) {
-			let parts = date.split(' ');
-			parts = parts.filter((part) => part != "Streamed" && part != "ago");
-			return {
-				quantity: Number(parts[0]),
-				unit: parts[1]
-			}
-		}
-
-		if (!rawDate)
+		if (!metadataHtml)
 			return 0;
-		const parsedDate = getQuantityAndUnit(rawDate);
-		const videoAge = unitsToSeconds(parsedDate.quantity, parsedDate.unit);
-		return videoAge;
+
+		const match = metadataHtml.match(/([\d,]+)\s*(second|minute|hour|day|week|month|year)s?\s*(?:ago|streaming)/i);
+		if (!match)
+			return 0;
+
+		return unitsToSeconds(Number(match[1].replace(',', '')), match[2]);
 	}
 
 	function unitsToSeconds(quantity: number, unit: string) {
