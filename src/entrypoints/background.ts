@@ -5,6 +5,7 @@ export default defineBackground(() => {
 		if (message.type === 'saveFilterSettings') {
 			console.log('[Background] Saving settings:', message.quantity, message.unit);
 			browser.storage.local.set({
+				power: message.power,
 				filterQuantity: message.quantity,
 				filterUnit: message.unit,
 				hideMostRelevantSection: message.hideMostRelevantSection,
@@ -27,6 +28,7 @@ export default defineBackground(() => {
 		console.log('[Background] getFilterSettings request:', message);
 		if (message.type === 'getFilterSettings') {
 			browser.storage.local.get({
+				power: true,
 				filterQuantity: '24',
 				filterUnit: 'hours',
 				hideMostRelevantSection: true,
@@ -34,6 +36,7 @@ export default defineBackground(() => {
 			}).then((result) => {
 				console.log('[Background] Returning settings:', result);
 				sendResponse({
+					power: result.power as boolean,
 					quantity: result.filterQuantity as string,
 					unit: result.filterUnit as string,
 					hideMostRelevantSection: result.hideMostRelevantSection as boolean,

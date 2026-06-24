@@ -37,6 +37,7 @@ function videoFilterer() {
 	let videoObserver: MutationObserver | null = null;
 
 	let settings = {
+		power: true,
 		ageLimitSeconds: 86399,
 		hideMostRelevantSection: true,
 		hideShortsSection: true,
@@ -58,8 +59,9 @@ function videoFilterer() {
 
 	async function loadSettings() {
 		try {
-			const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { quantity: string, unit: string, hideMostRelevantSection: boolean, hideShortsSection: boolean } | undefined;
+			const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { power: boolean, quantity: string, unit: string, hideMostRelevantSection: boolean, hideShortsSection: boolean } | undefined;
 			if (response) {
+				settings.power = response.power;
 				settings.ageLimitSeconds = unitsToSeconds(parseInt(response.quantity), response.unit);
 				settings.hideMostRelevantSection = response.hideMostRelevantSection;
 				settings.hideShortsSection = response.hideShortsSection;
@@ -83,7 +85,7 @@ function videoFilterer() {
 	function shouldRun(): boolean {
 		let path = window.location.pathname;
 		isDev && console.log(`path ${path}`)
-		return path.includes('/feed/subscriptions');
+		return path.includes('/feed/subscriptions') && settings.power;
 	}
 
 

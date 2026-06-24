@@ -3,7 +3,10 @@
 	import "./app.css";
 	import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
 	import Switch from "$lib/components/ui/switch/switch.svelte";
+	import { PowerIcon, PowerOffIcon } from "lucide-svelte";
+	import Button from "$lib/components/ui/button/button.svelte";
 
+	let power = $state(true);
 	let quantity = $state("24");
 	let unit = $state("hours");
 	let hideMostRelevantSection = $state(true);
@@ -17,6 +20,7 @@
 				type: "getFilterSettings",
 			})) as
 				| {
+						power: boolean;
 						quantity: string;
 						unit: string;
 						hideMostRelevantSection: boolean;
@@ -41,6 +45,7 @@
 		try {
 			await browser.runtime.sendMessage({
 				type: "saveFilterSettings",
+				power,
 				unit,
 				quantity,
 				hideMostRelevantSection,
@@ -62,65 +67,84 @@
 
 <main>
 	<div class="header">
-		<img src={finitudeLogo} class="logo" alt="Finitude Logo" />
-		<h1>Finitude</h1>
+		<div class="flex flex-row">
+			<img src={finitudeLogo} class="logo" alt="Finitude Logo" />
+			<h1 class="pl-2">Finitude</h1>
+		</div>
+		<div class="float-right">
+			<Button
+				onclick={() => {
+					power = !power;
+					handleChange();
+				}}
+			>
+				{#if power}
+					<PowerIcon />
+				{:else}
+					<PowerOffIcon />
+				{/if}
+			</Button>
+		</div>
 	</div>
-
-	{#if loading}
-		<p>Loading...</p>
-	{:else}
-		<div class="filter-controls">
-			<label for="quantity">Limit subscriptions to less than</label>
-			<div class="input-row">
-				<input
-					type="number"
-					id="quantity"
-					name="quantity"
-					min="1"
-					bind:value={quantity}
-					onchange={handleChange}
-				/>
-				<select
-					id="unit"
-					name="unit"
-					bind:value={unit}
-					onchange={handleChange}
-				>
-					<option value="hours">hours</option>
-					<option value="days">days</option>
-					<option value="weeks">weeks</option>
-					<option value="months">months</option>
-				</select>
+	<div>
+		{#if loading}
+			<p>Loading...</p>
+		{:else if !power}
+			<p class="text-center">Finitude is disabled.</p>
+		{:else}
+			<div class="filter-controls">
+				<label for="quantity">Limit subscriptions to less than</label>
+				<div class="input-row">
+					<input
+						type="number"
+						id="quantity"
+						name="quantity"
+						min="1"
+						bind:value={quantity}
+						onchange={handleChange}
+					/>
+					<select
+						id="unit"
+						name="unit"
+						bind:value={unit}
+						onchange={handleChange}
+					>
+						<option value="hours">hours</option>
+						<option value="days">days</option>
+						<option value="weeks">weeks</option>
+						<option value="months">months</option>
+					</select>
+				</div>
 			</div>
-		</div>
 
-		<div class="flex flex-col gap-3">
-			<label class="flex items-center gap-2 text-sm">
-				Hide Most relevant section
-				<Switch
-					checked={hideMostRelevantSection}
-					onCheckedChange={(checked) => {
-						hideMostRelevantSection = !!checked;
-						handleChange();
-					}}
-				/>
-			</label>
-			<label class="flex items-center gap-2 text-sm">
-				Hide Shorts section
-				<Switch
-					checked={hideShortsSection}
-					onCheckedChange={(checked) => {
-						hideShortsSection = !!checked;
-						handleChange();
-					}}
-				/>
-			</label>
-		</div>
-	{/if}
+			<div class="flex flex-col gap-3">
+				<label class="flex items-center gap-2 text-sm">
+					Hide Most relevant section
+					<Switch
+						checked={hideMostRelevantSection}
+						onCheckedChange={(checked) => {
+							hideMostRelevantSection = !!checked;
+							handleChange();
+						}}
+					/>
+				</label>
+				<label class="flex items-center gap-2 text-sm">
+					Hide Shorts section
+					<Switch
+						checked={hideShortsSection}
+						onCheckedChange={(checked) => {
+							hideShortsSection = !!checked;
+							handleChange();
+						}}
+					/>
+				</label>
+			</div>
+		{/if}
 
-	{#if saving}
-		<p class="saving">Saving...</p>
-	{/if}
+		{#if saving}
+			<p class="saving">Saving...</p>
+		{/if}
+	</div>
 </main>
 
 <style>

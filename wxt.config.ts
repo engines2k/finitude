@@ -9,7 +9,7 @@ export default defineConfig({
 		plugins: [tailwindcss()],
 		resolve: {
 			alias: {
-				$lib: resolve(__dirname, 'src/lib'),
+				$lib: resolve(__dirname, './src/lib'),
 			},
 		},
 	}),
