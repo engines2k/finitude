@@ -30,11 +30,12 @@ browser.runtime.onMessage.addListener(
 
 
 function videoFilterer() {
-	const queries = {
-		subscriptionVideo: "#primary ytd-item-section-renderer",
-		gridVideo: "#contents ytd-rich-item-renderer",
-		mobileSubscriptionVideo: "ytm-rich-item-renderer",
-		feedContinuation: "ytd-continuation-item-renderer, ytm-continuation-item-renderer",
+	const QUERIES = {
+		VIDEO_SUBSCRIPTION: "#primary ytd-item-section-renderer",
+		VIDEO_SUBSCRIPTION_GRIC: "#contents ytd-rich-item-renderer",
+		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
+		CONTINUATOR_FEED: "ytd-continuation-item-renderer, ytm-continuation-item-renderer",
+		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment"
 	} as const;
 
 	let videoObserver: MutationObserver | null = null;
@@ -44,12 +45,14 @@ function videoFilterer() {
 		ageLimitSeconds: 86399,
 		hideMostRelevantSection: true,
 		hideShortsSection: true,
+		hideWatchedVideos: true,
+		hideWatchedVideosPercentage: .09,
 	};
 
 	let videoTypes = {
-		subscription: queries.subscriptionVideo,
-		grid: queries.gridVideo,
-		mobile: queries.mobileSubscriptionVideo,
+		subscription: QUERIES.VIDEO_SUBSCRIPTION,
+		grid: QUERIES.VIDEO_SUBSCRIPTION_GRIC,
+		mobile: QUERIES.VIDEO_SUBSCRIPTION_MOBILE,
 	};
 
 	return {
@@ -69,11 +72,11 @@ function videoFilterer() {
 	function filterVideos() {
 		videoObserver?.disconnect();
 		videoObserver = new MutationObserver(() => {
-			_handleVideoFeedMutation();
+			_handleFeedMutation();
 		});
 		videoObserver.observe(document.body, { childList: true, subtree: true });
 
-		_handleVideoFeedMutation();
+		_handleFeedMutation();
 	}
 
 	async function loadSettings() {
@@ -91,32 +94,35 @@ function videoFilterer() {
 	}
 
 	function stopFeedContinuation() {
-		const continuator = document.querySelector(queries.feedContinuation) as HTMLElement
+		const continuator = document.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
 		if (continuator)
 			continuator.style.display = 'none';
 	}
 
 	function resumeFeedContinuation() {
-		const continuator = document.querySelector(queries.feedContinuation) as HTMLElement
+		const continuator = document.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
 		if (continuator)
 			continuator.style.display = 'block';
 	}
 
-	function _handleVideoFeedMutation() {
+	function _handleFeedMutation() {
 		if (!shouldRun())
 			return;
-		let anyHidden = false;
+		let oldHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
 			let matches = document.querySelectorAll(query)
 			isDev && console.log(`evaluating ${matches.length} matches`);
 			for (let video of matches) {
 				if (_videoTooOld(video as HTMLElement, type)) {
-					video.remove()
-					anyHidden = true;
+					video.remove();
+					oldHidden = true;
+				}
+				if (settings.hideWatchedVideos && _videoWatched(video as HTMLElement)) {
+					video.remove();
 				}
 			}
 		}
-		if (anyHidden) stopFeedContinuation();
+		if (oldHidden) stopFeedContinuation();
 		if (settings.hideMostRelevantSection)
 			_hideSection("Most relevant");
 		if (settings.hideShortsSection)
@@ -172,6 +178,20 @@ function videoFilterer() {
 			return 0;
 
 		return _unitsToSeconds(Number(match[1].replace(',', '')), match[2]);
+	}
+
+	function _videoWatched(video: HTMLElement): boolean {
+		const progressBar = video.querySelector(QUERIES.PROGRESS_VIDEO);
+		isDev && console.log({ progressBar });
+		if (!progressBar) return false;
+		const progressWidth = (progressBar as HTMLElement).style.width;
+		const progress = parseFloat(progressWidth) / 100;
+		isDev && console.log({ progressWidth, video, progress })
+		if (progress >= settings.hideWatchedVideosPercentage) {
+			isDev && console.log(`Hid watched video: ${video}`);
+			return true
+		}
+		return false;
 	}
 
 	function _unitsToSeconds(quantity: number, unit: string) {
