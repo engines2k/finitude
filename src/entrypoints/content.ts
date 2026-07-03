@@ -1,24 +1,41 @@
 export default defineContentScript({
 	matches: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
 	main() {
-		runFilter();
-		new MutationObserver(runFilter).observe(document.body, { childList: true, subtree: true });
+		filterer.loadSettings();
+		tryObserve();
+		window.addEventListener('navigate', tryObserve);
 	},
 });
 
 const isDev = import.meta.env.DEV;
-//<div class="ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment" style="width: 100%;"></div>
+const filterer = videoFilterer();
+let observer: MutationObserver | null = null;
 
-function runFilter() {
-	if (!filterer.shouldRun()) {
-		filterer.resumeFeedContinuation();
-		return;
+function tryObserve() {
+	isDev && console.log("observing");
+	observer && observer.disconnect();
+	if (!filterer.shouldRun()) return;
+	const target = document.querySelector('#primary ytd-rich-grid-renderer, #primary ytm-rich-grid-renderer, #primary');
+	if (target) {
+		observer = new MutationObserver(runFilter);
+		observer.observe(target, { childList: true, subtree: true });
+	} else {
+		requestAnimationFrame(tryObserve);
 	}
+};
+
+function runFilter(records: MutationRecord[]) {
 	filterer.loadSettings();
-	filterer.filterVideos();
+	for (const record of records) {
+		if (record.type != "childList") continue;
+		if (!filterer.shouldRun()) {
+			filterer.resumeFeedContinuation();
+			continue;
+		}
+		filterer.filterVideos(record.addedNodes);
+	}
 }
 
-const filterer = videoFilterer();
 
 browser.runtime.onMessage.addListener(
 	function listenForMessage(message, _, __) {
@@ -38,15 +55,13 @@ function videoFilterer() {
 		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment"
 	} as const;
 
-	let videoObserver: MutationObserver | null = null;
-
 	let settings = {
 		power: true,
 		ageLimitSeconds: 86399,
 		hideMostRelevantSection: true,
 		hideShortsSection: true,
-		hideWatchedVideos: true,
-		hideWatchedVideosPercentage: .09,
+		hideWatchedVideos: false,
+		hideVideoPercentage: .75,
 	};
 
 	let videoTypes = {
@@ -65,28 +80,23 @@ function videoFilterer() {
 
 	function shouldRun(): boolean {
 		let path = window.location.pathname;
-		isDev && console.log(`path ${path}`)
 		return path.includes('/feed/subscriptions') && settings.power;
 	}
 
-	function filterVideos() {
-		videoObserver?.disconnect();
-		videoObserver = new MutationObserver(() => {
-			_handleFeedMutation();
-		});
-		videoObserver.observe(document.body, { childList: true, subtree: true });
-
-		_handleFeedMutation();
+	function filterVideos(nodes: NodeList) {
+		_handleFeedMutation(nodes);
 	}
 
 	async function loadSettings() {
 		try {
-			const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { power: boolean, quantity: string, unit: string, hideMostRelevantSection: boolean, hideShortsSection: boolean } | undefined;
+			const response = await browser.runtime.sendMessage({ type: 'getFilterSettings' }) as { power: boolean, quantity: string, unit: string, hideMostRelevantSection: boolean, hideShortsSection: boolean, hideWatchedVideos: boolean, hideVideoPercentage: number } | undefined;
 			if (response) {
 				settings.power = response.power;
 				settings.ageLimitSeconds = _unitsToSeconds(parseInt(response.quantity), response.unit);
 				settings.hideMostRelevantSection = response.hideMostRelevantSection;
 				settings.hideShortsSection = response.hideShortsSection;
+				settings.hideWatchedVideos = response.hideWatchedVideos;
+				settings.hideVideoPercentage = response.hideVideoPercentage;
 			}
 		} catch (err) {
 			console.error('[Content] Error loading settings:', err);
@@ -105,14 +115,14 @@ function videoFilterer() {
 			continuator.style.display = 'block';
 	}
 
-	function _handleFeedMutation() {
+	function _handleFeedMutation(nodes: NodeList) {
 		if (!shouldRun())
 			return;
 		let oldHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
-			let matches = document.querySelectorAll(query)
-			isDev && console.log(`evaluating ${matches.length} matches`);
-			for (let video of matches) {
+			let newVideos = Array.from(nodes).filter(el => el instanceof Element && el.matches(query));
+			isDev && console.log(`Evaluating ${newVideos.length} video matches`);
+			for (let video of newVideos as Element[]) {
 				if (_videoTooOld(video as HTMLElement, type)) {
 					video.remove();
 					oldHidden = true;
@@ -144,7 +154,7 @@ function videoFilterer() {
 
 	function _videoTooOld(video: HTMLElement, viewType: keyof typeof videoTypes) {
 		const age = _getVideoAge(video, viewType);
-		isDev && console.log(`${video} has age of ${age}`);
+		isDev && console.log(`${video.querySelector('.ytLockupMetadataViewModelTitle span')?.textContent} has age of ${age} seconds`);
 		return age >= settings.ageLimitSeconds;
 	}
 
@@ -187,7 +197,7 @@ function videoFilterer() {
 		const progressWidth = (progressBar as HTMLElement).style.width;
 		const progress = parseFloat(progressWidth) / 100;
 		isDev && console.log({ progressWidth, video, progress })
-		if (progress >= settings.hideWatchedVideosPercentage) {
+		if (progress >= settings.hideVideoPercentage) {
 			isDev && console.log(`Hid watched video: ${video}`);
 			return true
 		}

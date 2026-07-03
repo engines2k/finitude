@@ -3,6 +3,7 @@
 	import "./app.css";
 	import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
 	import Switch from "$lib/components/ui/switch/switch.svelte";
+	import { Slider } from "$lib/components/ui/slider/index";
 	import { PowerIcon, PowerOffIcon } from "lucide-svelte";
 	import Button from "$lib/components/ui/button/button.svelte";
 
@@ -11,6 +12,9 @@
 	let unit = $state("hours");
 	let hideMostRelevantSection = $state(true);
 	let hideShortsSection = $state(true);
+	let hideWatchedVideos = $state(false);
+	let hideVideoPercentage = $state(0.75);
+
 	let loading = $state(true);
 	let saving = $state(false);
 
@@ -25,6 +29,8 @@
 						unit: string;
 						hideMostRelevantSection: boolean;
 						hideShortsSection: boolean;
+						hideWatchedVideos: boolean;
+						hideVideoPercentage: number;
 				  }
 				| undefined;
 			if (response) {
@@ -32,6 +38,8 @@
 				unit = response.unit;
 				hideMostRelevantSection = response.hideMostRelevantSection;
 				hideShortsSection = response.hideShortsSection;
+				hideWatchedVideos = response.hideWatchedVideos;
+				hideVideoPercentage = response.hideVideoPercentage;
 			}
 		} catch (err) {
 			console.error("[Popup] Error loading settings:", err);
@@ -50,6 +58,8 @@
 				quantity,
 				hideMostRelevantSection,
 				hideShortsSection,
+				hideWatchedVideos,
+				hideVideoPercentage,
 			});
 		} catch (err) {
 			console.error("[Popup] Error saving settings:", err);
@@ -69,7 +79,7 @@
 	<div class="header">
 		<div class="flex flex-row">
 			<img src={finitudeLogo} class="logo" alt="Finitude Logo" />
-			<h1 class="pl-2">Finitude</h1>
+			<h1 class="pl-2">finitude</h1>
 		</div>
 		<div class="float-right">
 			<Button
@@ -93,8 +103,8 @@
 			<p class="text-center">Finitude is disabled.</p>
 		{:else}
 			<div class="filter-controls">
-				<label for="quantity">Limit subscriptions to less than</label>
-				<div class="input-row">
+				<label for="quantity">limit subscriptions to less than</label>
+				<div class="input-row mb-4">
 					<input
 						type="number"
 						id="quantity"
@@ -118,8 +128,8 @@
 			</div>
 
 			<div class="flex flex-col gap-3">
-				<label class="flex items-center gap-2 text-sm">
-					Hide Most relevant section
+				<label class="flex items-center justify-between gap-2 text-sm">
+					<span>hide Most relevant section</span>
 					<Switch
 						checked={hideMostRelevantSection}
 						onCheckedChange={(checked) => {
@@ -128,8 +138,8 @@
 						}}
 					/>
 				</label>
-				<label class="flex items-center gap-2 text-sm">
-					Hide Shorts section
+				<label class="flex items-center justify-between gap-2 text-sm">
+					<span>hide Shorts section</span>
 					<Switch
 						checked={hideShortsSection}
 						onCheckedChange={(checked) => {
@@ -137,6 +147,30 @@
 							handleChange();
 						}}
 					/>
+				</label>
+				<label class="flex items-center justify-between gap-2 text-sm">
+					<span>hide watched videos</span>
+					<Switch
+						checked={hideWatchedVideos}
+						onCheckedChange={(checked) => {
+							hideWatchedVideos = !!checked;
+							console.log({ hideWatchedVideos });
+							handleChange();
+						}}
+					/>
+				</label>
+				<label class="flex items-center gap-2 text-sm">
+					<span>hide videos at</span>
+					<Slider
+						class="max-w-[75px]"
+						type="single"
+						bind:value={hideVideoPercentage}
+						onValueChange={handleChange}
+						max={1}
+						step={0.01}
+					/>
+					<span>{Math.round(hideVideoPercentage * 100)}% watched</span
+					>
 				</label>
 			</div>
 		{/if}

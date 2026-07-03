@@ -10,6 +10,9 @@ export default defineBackground(() => {
 				filterUnit: message.unit,
 				hideMostRelevantSection: message.hideMostRelevantSection,
 				hideShortsSection: message.hideShortsSection,
+				hideWatchedVideos: message.hideWatchedVideos,
+				hideVideoPercentage: message.hideVideoPercentage
+
 			}).then(() => {
 				console.log('[Background] Settings saved, querying tabs...');
 				browser.tabs.query({ url: 'https://www.youtube.com/*' }).then((tabs) => {
@@ -33,6 +36,8 @@ export default defineBackground(() => {
 				filterUnit: 'hours',
 				hideMostRelevantSection: true,
 				hideShortsSection: true,
+				hideWatchedVideos: false,
+				hideVideoPercentage: .75,
 			}).then((result) => {
 				console.log('[Background] Returning settings:', result);
 				sendResponse({
@@ -41,6 +46,8 @@ export default defineBackground(() => {
 					unit: result.filterUnit as string,
 					hideMostRelevantSection: result.hideMostRelevantSection as boolean,
 					hideShortsSection: result.hideShortsSection as boolean,
+					hideWatchedVideos: result.hideWatchedVideos as boolean,
+					hideVideoPercentage: result.hideVideoPercentage as number,
 				});
 			}).catch(err => {
 				console.error('[Background] Error getting settings:', err);
