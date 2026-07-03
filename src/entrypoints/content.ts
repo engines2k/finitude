@@ -2,12 +2,25 @@ export default defineContentScript({
 	matches: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
 	main() {
 		filterer.loadSettings();
-		tryObserve();
-		window.addEventListener('navigate', tryObserve);
+		window.addEventListener('yt-navigate-finish', () => {
+			tryObserve();
+			const tryFilter = () => {
+				const subsPageEl = document.querySelector('ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse[page-subtype="subscriptions"][role="main"] #primary ytm-rich-grid-renderer');
+				console.log(subsPageEl);
+				if (subsPageEl) {
+					filterer.filterVideos(subsPageEl);
+				} else {
+					requestAnimationFrame(tryFilter);
+				}
+			};
+			tryFilter();
+		});
+
 	},
 });
 
 const isDev = import.meta.env.DEV;
+const subsQuery = 'ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse[page-subtype="subscriptions"][role="main"] #primary ytm-rich-grid-renderer'
 const filterer = videoFilterer();
 let observer: MutationObserver | null = null;
 
@@ -15,10 +28,11 @@ function tryObserve() {
 	isDev && console.log("observing");
 	observer && observer.disconnect();
 	if (!filterer.shouldRun()) return;
-	const target = document.querySelector('#primary ytd-rich-grid-renderer, #primary ytm-rich-grid-renderer, #primary');
-	if (target) {
+	let subsPage = document.querySelector(subsQuery);
+	console.log({ subsPage });
+	if (subsPage) {
 		observer = new MutationObserver(runFilter);
-		observer.observe(target, { childList: true, subtree: true });
+		observer.observe(subsPage, { childList: true, subtree: true });
 	} else {
 		requestAnimationFrame(tryObserve);
 	}
@@ -51,8 +65,8 @@ function videoFilterer() {
 		VIDEO_SUBSCRIPTION: "#primary ytd-item-section-renderer",
 		VIDEO_SUBSCRIPTION_GRIC: "#contents ytd-rich-item-renderer",
 		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
-		CONTINUATOR_FEED: "ytd-continuation-item-renderer, ytm-continuation-item-renderer",
-		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment"
+		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment",
+		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
 	} as const;
 
 	let settings = {
@@ -83,8 +97,16 @@ function videoFilterer() {
 		return path.includes('/feed/subscriptions') && settings.power;
 	}
 
-	function filterVideos(nodes: NodeList) {
-		_handleFeedMutation(nodes);
+	function filterVideos(target: NodeList | Element) {
+		if (target instanceof Element) {
+			let videos = target.querySelectorAll(
+				Object.values(videoTypes).join(', ')
+			);
+			_handleFeedMutation(videos)
+		} else {
+			console.log({ nodes: target });
+			_handleFeedMutation(target as NodeList);
+		}
 	}
 
 	async function loadSettings() {
@@ -104,13 +126,13 @@ function videoFilterer() {
 	}
 
 	function stopFeedContinuation() {
-		const continuator = document.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
+		const continuator = document.querySelector(subsQuery).querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
 		if (continuator)
 			continuator.style.display = 'none';
 	}
 
 	function resumeFeedContinuation() {
-		const continuator = document.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
+		const continuator = document.querySelector(subsQuery).querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
 		if (continuator)
 			continuator.style.display = 'block';
 	}
