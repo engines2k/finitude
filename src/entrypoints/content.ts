@@ -1,40 +1,52 @@
 export default defineContentScript({
 	matches: ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
 	main() {
+		isDev && console.log('[finitude] starting');
 		filterer.loadSettings();
-		window.addEventListener('yt-navigate-finish', () => {
-			tryObserve();
-			const tryFilter = () => {
-				const subsPageEl = document.querySelector('ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse[page-subtype="subscriptions"][role="main"] #primary ytm-rich-grid-renderer');
-				console.log(subsPageEl);
-				if (subsPageEl) {
-					filterer.filterVideos(subsPageEl);
-				} else {
-					requestAnimationFrame(tryFilter);
-				}
-			};
-			tryFilter();
+		window.addEventListener('yt-navigate-finish', handleNavigation);
+		const pathObserver = new MutationObserver(() => {
+			const currentPath = window.location.href;
+			if (currentPath !== lastPath) {
+				lastPath = currentPath;
+				handleNavigation();
+			}
 		});
-
+		pathObserver.observe(document.body, { childList: true, subtree: true });
 	},
 });
 
+let lastPath = '';
 const isDev = import.meta.env.DEV;
-const subsQuery = 'ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse[page-subtype="subscriptions"][role="main"] #primary ytm-rich-grid-renderer'
+const subsQuery = `ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse .tab-content[tab-identifier="FEsubscriptions"] ytm-rich-grid-renderer`
 const filterer = videoFilterer();
 let observer: MutationObserver | null = null;
+
+function handleNavigation() {
+	isDev && console.log('[finitude] caught page navigation');
+	tryObserve();
+	const tryFilter = () => {
+		const subsPageEl = document.querySelector(subsQuery);
+		if (subsPageEl) {
+			filterer.filterVideos(subsPageEl);
+		} else {
+			requestAnimationFrame(tryFilter);
+		}
+	};
+	tryFilter();
+}
 
 function tryObserve() {
 	isDev && console.log("observing");
 	observer && observer.disconnect();
 	if (!filterer.shouldRun()) return;
 	let subsPage = document.querySelector(subsQuery);
-	console.log({ subsPage });
 	if (subsPage) {
+		isDev && console.log(`[finitude] Subs page element: ${subsPage}`);
 		observer = new MutationObserver(runFilter);
 		observer.observe(subsPage, { childList: true, subtree: true });
 	} else {
-		requestAnimationFrame(tryObserve);
+		isDev && console.log("[finitude] Couldn't find subs page element, trying again later");
+		setTimeout(() => requestAnimationFrame(tryObserve), 250);
 	}
 };
 
@@ -63,9 +75,9 @@ browser.runtime.onMessage.addListener(
 function videoFilterer() {
 	const QUERIES = {
 		VIDEO_SUBSCRIPTION: "#primary ytd-item-section-renderer",
-		VIDEO_SUBSCRIPTION_GRIC: "#contents ytd-rich-item-renderer",
+		VIDEO_SUBSCRIPTION_GRID: "#contents ytd-rich-item-renderer",
 		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
-		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment",
+		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, .YtmThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress",
 		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
 	} as const;
 
@@ -80,7 +92,7 @@ function videoFilterer() {
 
 	let videoTypes = {
 		subscription: QUERIES.VIDEO_SUBSCRIPTION,
-		grid: QUERIES.VIDEO_SUBSCRIPTION_GRIC,
+		grid: QUERIES.VIDEO_SUBSCRIPTION_GRID,
 		mobile: QUERIES.VIDEO_SUBSCRIPTION_MOBILE,
 	};
 
@@ -104,7 +116,6 @@ function videoFilterer() {
 			);
 			_handleFeedMutation(videos)
 		} else {
-			console.log({ nodes: target });
 			_handleFeedMutation(target as NodeList);
 		}
 	}
@@ -126,15 +137,25 @@ function videoFilterer() {
 	}
 
 	function stopFeedContinuation() {
-		const continuator = document.querySelector(subsQuery).querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
+		const subsFeed = document.querySelector(subsQuery);
+		const continuator = subsFeed?.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement;
 		if (continuator)
 			continuator.style.display = 'none';
+		else {
+			console.error(`[finitude]: Unable to locate continuation element`);
+			isDev && console.log({ subsFeed, continuator })
+		}
 	}
 
 	function resumeFeedContinuation() {
-		const continuator = document.querySelector(subsQuery).querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement
+		const subsFeed = document.querySelector(subsQuery);
+		const continuator = subsFeed?.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement;
 		if (continuator)
 			continuator.style.display = 'block';
+		else {
+			console.error(`[finitude]: Unable to locate continuation element`);
+			isDev && console.log({ subsFeed, continuator })
+		}
 	}
 
 	function _handleFeedMutation(nodes: NodeList) {
@@ -149,8 +170,12 @@ function videoFilterer() {
 					video.remove();
 					oldHidden = true;
 				}
-				if (settings.hideWatchedVideos && _videoWatched(video as HTMLElement)) {
-					video.remove();
+				if (settings.hideWatchedVideos) {
+					if (_videoWatched(video as HTMLElement)) {
+						video.remove();
+					} else if (!video.querySelector(QUERIES.PROGRESS_VIDEO)) {
+						_observeVideoProgress(video as HTMLElement);
+					}
 				}
 			}
 		}
@@ -162,11 +187,14 @@ function videoFilterer() {
 	}
 
 	function _hideSection(name: string) {
-		let sectionsQuery = "ytd-rich-section-renderer, ytm-rich-section-renderer"
+		const sectionsQuery = "ytd-rich-section-renderer, ytm-rich-section-renderer"
+		isDev && console.log(`[finitude] hiding section ${name}`);
 		let sections = document.querySelectorAll(sectionsQuery)
-		for (let section of sections)
-			if (_getSectionTitle(section as HTMLElement) == name)
+		for (let section of sections) {
+			const titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span, .reel-shelf-title span");
+			if (titleElement?.textContent == name)
 				section.remove();
+		}
 	}
 
 	function _getSectionTitle(section: HTMLElement) {
@@ -214,7 +242,7 @@ function videoFilterer() {
 
 	function _videoWatched(video: HTMLElement): boolean {
 		const progressBar = video.querySelector(QUERIES.PROGRESS_VIDEO);
-		isDev && console.log({ progressBar });
+		isDev && console.log(`[finitude] checking progress for ${video}, progress bar: ${progressBar}`);
 		if (!progressBar) return false;
 		const progressWidth = (progressBar as HTMLElement).style.width;
 		const progress = parseFloat(progressWidth) / 100;
@@ -224,6 +252,23 @@ function videoFilterer() {
 			return true
 		}
 		return false;
+	}
+
+	function _observeVideoProgress(video: HTMLElement) {
+		const observer = new MutationObserver((mutations, obs) => {
+			if (!settings.hideWatchedVideos) {
+				obs.disconnect();
+				return;
+			}
+			const progressBar = video.querySelector(QUERIES.PROGRESS_VIDEO);
+			if (progressBar) {
+				obs.disconnect();
+				if (_videoWatched(video)) {
+					video.remove();
+				}
+			}
+		});
+		observer.observe(video, { childList: true, subtree: true });
 	}
 
 	function _unitsToSeconds(quantity: number, unit: string) {
