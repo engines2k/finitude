@@ -34,6 +34,7 @@
 				  }
 				| undefined;
 			if (response) {
+				power = response.power;
 				quantity = response.quantity;
 				unit = response.unit;
 				hideMostRelevantSection = response.hideMostRelevantSection;
