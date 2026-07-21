@@ -26,6 +26,7 @@ function handleNavigation() {
 	tryObserve();
 	const tryFilter = () => {
 		const subsPageEl = document.querySelector(subsQuery);
+		isDev && console.log({ subsPageEl });
 		if (subsPageEl) {
 			filterer.filterVideos(subsPageEl);
 		} else {
@@ -137,8 +138,10 @@ function videoFilterer() {
 	}
 
 	function stopFeedContinuation() {
+		isDev && console.log("stopping continuation...");
 		const subsFeed = document.querySelector(subsQuery);
 		const continuator = subsFeed?.querySelector(QUERIES.CONTINUATOR_FEED) as HTMLElement;
+		isDev && console.log({ continuator });
 		if (continuator)
 			continuator.style.display = 'none';
 		else {
@@ -164,7 +167,7 @@ function videoFilterer() {
 		let oldHidden = false;
 		for (let [type, query] of Object.entries(videoTypes) as [keyof typeof videoTypes, string][]) {
 			let newVideos = Array.from(nodes).filter(el => el instanceof Element && el.matches(query));
-			isDev && console.log(`Evaluating ${newVideos.length} video matches`);
+			isDev && console.log(`Evaluating ${newVideos.length} video matches: ${newVideos}`);
 			for (let video of newVideos as Element[]) {
 				if (_videoTooOld(video as HTMLElement, type)) {
 					video.remove();
