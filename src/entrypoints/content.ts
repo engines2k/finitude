@@ -3,15 +3,7 @@ export default defineContentScript({
 	main() {
 		isDev && console.log('[finitude] starting');
 		filterer.loadSettings();
-		window.addEventListener('yt-navigate-finish', handleNavigation);
-		const pathObserver = new MutationObserver(() => {
-			const currentPath = window.location.href;
-			if (currentPath !== lastPath) {
-				lastPath = currentPath;
-				handleNavigation();
-			}
-		});
-		pathObserver.observe(document.body, { childList: true, subtree: true });
+		filterer.init(window);
 	},
 });
 
@@ -98,12 +90,26 @@ function videoFilterer() {
 	};
 
 	return {
+		init,
 		shouldRun,
 		loadSettings,
 		filterVideos,
 		stopFeedContinuation,
 		resumeFeedContinuation,
 	};
+
+	function init(window) {
+		window.addEventListener('yt-navigate-finish', handleNavigation);
+		const pathObserver = new MutationObserver(() => {
+			const currentPath = window.location.href;
+			if (currentPath !== lastPath) {
+				lastPath = currentPath;
+				handleNavigation();
+			}
+		});
+		pathObserver.observe(document.body, { childList: true, subtree: true });
+	}
+
 
 	function shouldRun(): boolean {
 		let path = window.location.pathname;
