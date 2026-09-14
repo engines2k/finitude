@@ -5,8 +5,8 @@ let observer: MutationObserver | null = null;
 
 export default class FeedFilterer {
 	private QUERIES = {
-		VIDEO_SUBSCRIPTION: "#primary ytd-item-section-renderer",
-		VIDEO_SUBSCRIPTION_GRID: "#contents ytd-rich-item-renderer",
+		VIDEO_SUBSCRIPTION: "ytd-item-section-renderer",
+		VIDEO_SUBSCRIPTION_GRID: "ytd-rich-item-renderer",
 		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
 		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, .YtmThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress",
 		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
@@ -55,6 +55,7 @@ export default class FeedFilterer {
 		this.tryObserve();
 		const tryFilter = () => {
 			const subsPageEl = document.querySelector(subsQuery);
+			console.log("[finitude] re-grabbing subs element...");
 			isDev && console.log({ subsPageEl });
 			if (subsPageEl) {
 				this.filterVideos(subsPageEl);
@@ -71,8 +72,8 @@ export default class FeedFilterer {
 		if (!this.shouldRun()) return;
 		let subsPage = document.querySelector(subsQuery);
 		if (subsPage) {
-			isDev && console.log(`[finitude] Subs page element: ${subsPage}`);
-			observer = new MutationObserver(this.runFilter);
+			isDev && console.log({ subsPage });
+			observer = new MutationObserver(this.handleFeedMutation);
 			observer.observe(subsPage, { childList: true, subtree: true });
 		} else {
 			isDev && console.log("[finitude] Couldn't find subs page element, trying again later");
@@ -80,7 +81,7 @@ export default class FeedFilterer {
 		}
 	};
 
-	runFilter = (records: MutationRecord[]) => {
+	handleFeedMutation = (records: MutationRecord[]) => {
 		this.loadSettings();
 		for (const record of records) {
 			if (record.type != "childList") continue;
@@ -97,15 +98,8 @@ export default class FeedFilterer {
 		return path.includes('/feed/subscriptions') && this.settings.power;
 	}
 
-	filterVideos(target: NodeList | Element) {
-		if (target instanceof Element) {
-			let videos = target.querySelectorAll(
-				Object.values(this.videoTypes).join(', ')
-			);
-			this._handleFeedMutation(videos)
-		} else {
-			this._handleFeedMutation(target as NodeList);
-		}
+	filterVideos(_target: NodeList | Element) {
+		this._handleFeedMutation();
 	}
 
 	async loadSettings() {
@@ -148,14 +142,19 @@ export default class FeedFilterer {
 		}
 	}
 
-	_handleFeedMutation(nodes: NodeList) {
+	_handleFeedMutation() {
 		if (!this.shouldRun())
 			return;
+		const subsFeed = document.querySelector(subsQuery);
+		if (!subsFeed) return;
+		const allVideos = subsFeed.querySelectorAll(Object.values(this.videoTypes).join(', '));
+		isDev && console.log(`Evaluating ${allVideos.length} total videos`);
+		isDev && console.log({ allVideos });
 		let oldHidden = false;
 		for (let [type, query] of Object.entries(this.videoTypes) as [keyof typeof this.videoTypes, string][]) {
-			let newVideos = Array.from(nodes).filter(el => el instanceof Element && el.matches(query));
-			isDev && console.log(`Evaluating ${newVideos.length} video matches: ${newVideos}`);
-			for (let video of newVideos as Element[]) {
+			let videos = Array.from(allVideos).filter(el => el instanceof Element && el.matches(query));
+			isDev && console.log(`${type}: ${videos.length} videos`);
+			for (let video of videos as Element[]) {
 				if (this._videoTooOld(video as HTMLElement, type)) {
 					video.remove();
 					oldHidden = true;
@@ -178,7 +177,7 @@ export default class FeedFilterer {
 
 	_hideSection(name: string) {
 		const sectionsQuery = "ytd-rich-section-renderer, ytm-rich-section-renderer"
-		isDev && console.log(`[finitude] hiding section ${name}`);
+		// isDev && console.log(`[finitude] hiding section ${name}`);
 		let sections = document.querySelectorAll(sectionsQuery)
 		for (let section of sections) {
 			const titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span, .reel-shelf-title span");
