@@ -12,6 +12,8 @@ export default class FeedFilterer {
 		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
 	} as const;
 
+	private debounceTimer = 20;
+
 	settings = {
 		power: true,
 		ageLimitSeconds: 86399,
@@ -58,9 +60,11 @@ export default class FeedFilterer {
 			console.log("[finitude] re-grabbing subs element...");
 			isDev && console.log({ subsPageEl });
 			if (subsPageEl) {
+				this.debounceTimer = 20;
 				this.filterVideos(subsPageEl);
 			} else {
-				requestAnimationFrame(tryFilter);
+				this.debounceTimer *= 2;
+				setTimeout(tryFilter, this.debounceTimer);
 			}
 		};
 		tryFilter();
@@ -202,7 +206,8 @@ export default class FeedFilterer {
 
 		switch (viewType) {
 			case 'mobile': {
-				const metadata = video.querySelectorAll(".YtmBadgeAndBylineRendererItemByline");
+				const metadata = video.querySelectorAll("ytm-badge-and-byline-renderer .ytAttributedStringHost");
+
 				metadataHtml = (metadata?.[2] as HTMLElement)?.innerHTML;
 				break;
 			}
