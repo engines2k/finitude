@@ -2,6 +2,7 @@ let lastPath = '';
 const isDev = import.meta.env.DEV;
 const subsQuery = `ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse .tab-content[tab-identifier="FEsubscriptions"] ytm-rich-grid-renderer`
 let observer: MutationObserver | null = null;
+const FinitudeLogoUrl = (browser.runtime.getURL as (path: string) => string)('message-logo.webp');
 
 export default class FeedFilterer {
 	private QUERIES = {
@@ -57,7 +58,7 @@ export default class FeedFilterer {
 		this.tryObserve();
 		const tryFilter = () => {
 			const subsPageEl = document.querySelector(subsQuery);
-			console.log("[finitude] re-grabbing subs element...");
+			isDev && console.log("[finitude] re-grabbing subs element...");
 			isDev && console.log({ subsPageEl });
 			if (subsPageEl) {
 				this.debounceTimer = 20;
@@ -118,11 +119,11 @@ export default class FeedFilterer {
 				this.settings.hideVideoPercentage = response.hideVideoPercentage;
 			}
 		} catch (err) {
-			console.error('[Content] Error loading this.settings:', err);
+			isDev && console.error('[finitude] Error loading settings:', err);
 		}
 	}
 
-	stopFeedContinuation() {
+	stopFeedContinuation = () => {
 		isDev && console.log("stopping continuation...");
 		const subsFeed = document.querySelector(subsQuery);
 		const continuator = subsFeed?.querySelector(this.QUERIES.CONTINUATOR_FEED) as HTMLElement;
@@ -133,6 +134,21 @@ export default class FeedFilterer {
 			console.error(`[finitude]: Unable to locate continuation element`);
 			isDev && console.log({ subsFeed, continuator })
 		}
+		this.addFeedEndMessage();
+	}
+
+	addFeedEndMessage = () => {
+		const existing = document.getElementById('finitude-end-message');
+		if (existing) return;
+
+		const container = document.createElement('div');
+		container.id = 'finitude-end-message';
+		container.style.cssText = 'display: flex; flex-direction: column; align-items: center; padding: 20px;';
+		container.innerHTML = `
+			<img src="${FinitudeLogoUrl}" width="50" height="50" alt="Finitude">
+			<p style="margin-top: 8px; color: #888; font-family: inherit; font-size: 1.5rem;">You're all caught up</p>
+		`;
+		document.querySelector(subsQuery)?.appendChild(container);
 	}
 
 	resumeFeedContinuation() {

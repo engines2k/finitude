@@ -20,6 +20,7 @@ export default defineConfig({
 	},
 	manifest: {
 		permissions: ['storage'],
+		web_accessible_resources: ['message-logo.webp'],
 		browser_specific_settings: {
 			gecko: {
 				data_collection_permissions: {
