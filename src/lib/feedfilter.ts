@@ -146,7 +146,7 @@ export default class FeedFilterer {
 		container.style.cssText = 'display: flex; flex-direction: column; align-items: center; padding: 20px;';
 		container.innerHTML = `
 			<img src="${FinitudeLogoUrl}" width="50" height="50" alt="Finitude">
-			<p style="margin-top: 8px; color: #888; font-family: inherit; font-size: 1.5rem;">You're all caught up</p>
+			<p style="margin-top: 8px; color: #888; font-family: inherit; font-size: 1.5rem;">You're caught up</p>
 		`;
 		document.querySelector(subsQuery)?.appendChild(container);
 	}
