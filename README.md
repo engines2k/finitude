@@ -42,13 +42,16 @@
 
 ## About 
 
-There are many great extensions for removing distractions and simplifying YouTube, but none of them minimalize or extend the subscriptions page in the way I would like.
+There are many great extensions for removing distractions and simplifying YouTube, but none of them limit or extend the subscriptions feed.
 
-The goal of this extension is to be able to hit an "inbox zero" by constraining the length of the subscriptions page, and in the future extend it with features for grouping subscriptions, limiting videos from the same channel, and more.
+With finitude, you can hit an inbox-zero by constraining the length of the subscriptions page, and in the future extend it with features for grouping subscriptions, limiting videos from the same channel, and more.
 
 The lack of simple options for a user wishing to minimize their experience on social media and reduce contact with harmful features like infinite scrolling is frustrating. This is my attempt to remedy that in some small way. I hope it can help you reclaim digital peace!
 
-This extension is built with WXT and SvelteKit.
+<br/>
+<div align="center">
+  <img src="images/banner.webp" alt="Finitude banner" width="400"/>
+</div>
 
 
 ## Getting Started
