@@ -30,17 +30,6 @@ export default class FeedFilterer {
 		mobile: this.QUERIES.VIDEO_SUBSCRIPTION_MOBILE,
 	};
 
-	/*
-	 return {
-		init,
-		shouldRun,
-		loadSettings,
-		filterVideos,
-		stopFeedContinuation,
-		resumeFeedContinuation,
-	};
-	*/
-
 	constructor(window: Window) {
 		window.addEventListener('yt-navigate-finish', this.handleNavigation);
 	}
