@@ -9,7 +9,7 @@ export default class FeedFilterer {
 		VIDEO_SUBSCRIPTION: "ytd-item-section-renderer",
 		VIDEO_SUBSCRIPTION_GRID: "ytd-rich-item-renderer",
 		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
-		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, .YtmThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress",
+		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, .ytwThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress, .YtmThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress",
 		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
 	} as const;
 
