@@ -1,3 +1,5 @@
+import { VideoLookupError } from "../lib/errors"
+
 let lastPath = '';
 const isDev = import.meta.env.DEV;
 const subsQuery = `ytd-browse[page-subtype="subscriptions"][role="main"] #primary ytd-rich-grid-renderer, ytm-browse .tab-content[tab-identifier="FEsubscriptions"] ytm-rich-grid-renderer`
@@ -11,6 +13,7 @@ export default class FeedFilterer {
 		VIDEO_SUBSCRIPTION_MOBILE: "ytm-rich-item-renderer",
 		PROGRESS_VIDEO: ".ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, .ytwThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress, .YtmThumbnailOverlayResumePlaybackRendererThumbnailOverlayResumePlaybackProgress",
 		CONTINUATOR_FEED: `ytd-continuation-item-renderer, ytm-continuation-item-renderer`,
+		SECTION_TITLE: "#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span, .reel-shelf-title span",
 	} as const;
 
 	private debounceTimer = 20;
@@ -189,21 +192,20 @@ export default class FeedFilterer {
 		// isDev && console.log(`[finitude] hiding section ${name}`);
 		let sections = document.querySelectorAll(sectionsQuery)
 		for (let section of sections) {
-			const titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span, .reel-shelf-title span");
+			const titleElement = section.querySelector(this.QUERIES.SECTION_TITLE);
 			if (titleElement?.textContent == name)
 				section.remove();
 		}
 	}
 
-	_getSectionTitle(section: HTMLElement) {
-		let titleElement = section.querySelector("#rich-shelf-header #title, .rich-shelf-header .rich-shelf-title span")
-		return titleElement?.textContent;
-	}
-
 	_videoTooOld(video: HTMLElement, viewType: keyof typeof this.videoTypes) {
-		const age = this._getVideoAge(video, viewType);
-		isDev && console.log(`${video.querySelector('.ytLockupMetadataViewModelTitle span')?.textContent} has age of ${age} seconds`);
-		return age >= this.settings.ageLimitSeconds;
+		try {
+			const age = this._getVideoAge(video, viewType);
+			isDev && console.log(`${video.querySelector('.ytLockupMetadataViewModelTitle span')?.textContent} has age of ${age} seconds`);
+			return age >= this.settings.ageLimitSeconds;
+		} catch (e) {
+			isDev && console.log("Video age lookup for failed:", e.message, video);
+		}
 	}
 
 	_getVideoAge(video: HTMLElement, viewType: keyof typeof this.videoTypes) {
@@ -212,29 +214,37 @@ export default class FeedFilterer {
 		switch (viewType) {
 			case 'mobile': {
 				const metadata = video.querySelectorAll("ytm-badge-and-byline-renderer .ytAttributedStringHost");
-
-				metadataHtml = (metadata?.[2] as HTMLElement)?.innerHTML;
+				metadataHtml = (metadata?.[2] as HTMLElement)?.textContent;
 				break;
 			}
 
 			case 'subscription': {
 				const metadata = video.querySelectorAll("#metadata-line .ytd-video-meta-block");
-				metadataHtml = (metadata?.[3] as HTMLElement)?.innerHTML;
+				metadataHtml = (metadata?.[3] as HTMLElement)?.textContent;
 				break;
 			}
 			case 'grid': {
-				const metadata = video.querySelectorAll(".ytContentMetadataViewModelMetadataRow")[1];
-				metadataHtml = metadata?.innerHTML || null;
+				const metadataContainer = video.querySelector("yt-content-metadata-view-model");
+				if (metadataContainer) {
+					for (const el of Array.from(metadataContainer.querySelectorAll("*"))) {
+						if (el.children.length !== 0) continue;
+						const text = el.textContent?.trim();
+						if (text?.match(/(\d+)\s?(second|minute|hour|day|week|month|year|s|d|h|y)s?\s+(?:ago|streaming)/i)) {
+							metadataHtml = text;
+							break;
+						}
+					}
+				}
 				break;
 			}
 		}
 
 		if (!metadataHtml)
-			return 0;
+			throw new VideoLookupError("Could not find medatada for video element:");
 
-		const match = metadataHtml.match(/([\d,]+)\s*(second|minute|hour|day|week|month|year)s?\s*(?:ago|streaming)/i);
+		const match = metadataHtml.match(/(\d+)\s?(second|minute|hour|day|week|month|year|s|d|h|y)s?\s+(?:ago|streaming)/i);
 		if (!match)
-			return 0;
+			throw new VideoLookupError("Could not find medatada for video element:");
 
 		return unitsToSeconds(Number(match[1].replace(',', '')), match[2]);
 	}
@@ -275,14 +285,19 @@ export default class FeedFilterer {
 
 function unitsToSeconds(quantity: number, unit: string) {
 	const multiplierUnits: Record<string, number> = {
+		"s": 1,
 		"second": 1,
 		"seconds": 1,
 		"minute": 60,
 		"minutes": 60,
+		"m": 60,
+		"h": 3600,
 		"hour": 3600,
 		"hours": 3600,
+		"d": 86400,
 		"day": 86400,
 		"days": 86400,
+		"w": 604800,
 		"week": 604800,
 		"weeks": 604800,
 		"month": 2592000,
@@ -291,6 +306,6 @@ function unitsToSeconds(quantity: number, unit: string) {
 		"years": 31536000
 	};
 
-	let multiplier = multiplierUnits[unit];
-	return multiplier * quantity;
+	let multiplier = multiplierUnits[unit.toLowerCase()];
+	return (multiplier ?? NaN) * quantity;
 }
