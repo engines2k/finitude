@@ -1,7 +1,6 @@
 <script lang="ts">
 	import finitudeLogo from "../../../public/icon/128.png?url";
 	import "./app.css";
-	import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
 	import Switch from "$lib/components/ui/switch/switch.svelte";
 	import { Slider } from "$lib/components/ui/slider/index";
 	import { PowerIcon, PowerOffIcon } from "lucide-svelte";
